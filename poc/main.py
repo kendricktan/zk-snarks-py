@@ -1,3 +1,7 @@
+"""
+https://arxiv.org/abs/1906.07221
+"""
+
 import math
 
 from random import randint
@@ -8,13 +12,9 @@ from py_ecc.bn128.bn128_field_elements import inv
 from py_ecc.bn128 import FQ2, FQ, add, multiply, double, twist, pairing
 from py_ecc.bn128.bn128_pairing import miller_loop, cast_point_to_fq12
 
-
-# Types
-Point = Tuple[int, int]
-PointQ2 = Tuple[Point, Point]  # Quadratic Point with degree 2
-PointQ12 = List[int]
-AnyPoint = Union[Point, PointQ2, PointQ12]
-Scalar = int
+# miller_loop        :: Point2D[FQ12] -> Point2D[FQ12] -> FQ12
+# twist              :: Point2D[FQ2]  -> Point2D[FQ12]
+# cast_point_to_fq12 :: Point2D[FQ]   -> Point2D[FQ12]
 
 
 # Field order
@@ -23,45 +23,12 @@ P: int = bn128.field_modulus
 
 
 # Helper functions
-def ascoeff(x):
-    return x.coeffs if isinstance(x, bn128.FQ2) or isinstance(x, bn128.FQ12) else x
-
-
-def asint(x):
-    return x.n if isinstance(x, bn128.FQ) else x
-
-
-def fqToPoint(x: AnyPoint):
-    if isinstance(x, tuple):
-        if isinstance(x[0], bn128.FQ):
-            return (asint(x[0]), asint(x[1]))
-        if isinstance(x[0], FQ2):
-            return (ascoeff(x[0]), ascoeff(x[1]))
-        elif isinstance(x[0], bn128.FQ12):
-            return ascoeff(x)
-
-    t = type(x)
-    raise Exception(f'fqToPoint cant convert {t}')
-
-
 def randsn():
     return randint(1, N - 1)
 
 
 def randsp():
     return randint(1, P - 1)
-
-
-def sbmul(s):
-    return bn128.multiply(G, asint(s))
-
-
-def addmodn(x, y):
-    return (x + y) % N
-
-
-def addmodp(x, y):
-    return (x + y) % P
 
 
 def mulmodn(x, y):
@@ -72,83 +39,62 @@ def mulmodp(x, y):
     return (x * y) % P
 
 
-def submodn(x, y):
-    return (x - y) % N
+""" 
+    Section 3.4 (Page 16)
+
+    Simple restriction for a single coefficient polynomial
+"""
+
+alpha = randsp()
+s = randsp()
+coefficient = randsp()
+
+# Verifier
+g_s = multiply(bn128.G1, s)
+g_alpha_s = multiply(bn128.G1, alpha * s)
+
+# Prover (doesn't have alpha)
+g_s_c = multiply(g_s, coefficient)
+g_alpha_s_c = multiply(g_alpha_s, coefficient)
+
+assert multiply(g_s_c, alpha) == g_alpha_s_c
 
 
-def submodp(x, y):
-    return (x - y) % P
+"""
+    Section 3.4 (Page 17)
 
+    Restriction for polynomials with multiple coefficients
+"""
+polynomial_degree = 4
 
-def invmodn(x):
-    return inv(x, N)
+G = 446827
+alpha = randsp()
+s = randsp()
 
+coefficients = [randint(1, 42) for i in range(polynomial_degree)]
 
-def invmodp(x):
-    return inv(x, P)
+g_s = [
+    pow(G, s, P) for i in range(polynomial_degree)
+]
+g_alpha_s = [
+    pow(G, alpha * s, P) for i in range(polynomial_degree)
+]
 
+# Evaluate polynomial with provided powers of s
+g_p_s_prime = [
+    pow(g_s[i], coefficients[i], P) for i in range(polynomial_degree)
+]
+g_p_s = g_p_s_prime[0]
 
-def negp(x):
-    return (x[0], -x[1])
+for c in g_p_s_prime[1:]:
+    g_p_s = mulmodp(g_p_s, c)
 
+g_alpha_p_s_prime = [
+    pow(g_alpha_s[i], coefficients[i], P) for i in range(polynomial_degree)
+]
+g_alpha_p_s = g_alpha_p_s_prime[0]
 
-# Pairing tests
-G1 = bn128.G1
-G2 = bn128.G2
+for c in g_alpha_p_s_prime[1:]:
+    g_alpha_p_s = mulmodp(g_alpha_p_s, c)
 
-# Polynomials
-
-
-def p_x(x):
-    return pow(x, 3, N) - (3 * pow(x, 2, N)) + (2 * x)
-
-
-def t_x(x):
-    return (x - 1) * (x - 2)
-
-
-def h_x(x):
-    return p_x(x) / t_x(x)
-
-
-n = 10
-s = randsn()
-alpha = randsn()
-
-proving_key = (
-    [multiply(G1, pow(s, i, N)) for i in range(n)],
-    [multiply(G1, alpha * pow(s, i, N) % N) for i in range(n)]
-)
-
-verification_key = (
-    multiply(G1, t_x(s)),
-    multiply(G1, alpha)
-)
-
-# Prover evaluates
-# prover_Gp = reduce
-
-# miller_loop        :: Point2D[FQ12] -> Point2D[FQ12] -> FQ12
-# twist              :: Point2D[FQ2] -> Point2D[FQ12]
-# cast_point_to_fq12 :: Point2D[FQ] -> Point2D[FQ12]
-sk = randsn()
-pk1 = multiply(G1, sk)
-pk2 = multiply(G2, sk)
-
-k1 = miller_loop(
-    twist(G2),
-    cast_point_to_fq12(pk1)
-)
-
-k2 = miller_loop(
-    twist(pk2),
-    cast_point_to_fq12(G1)
-)
-
-verified = k1 == k2
-print(f'Verified: {verified}')
-
-# miller_loop(
-#     cast_point_to_fq12(proving_key[0][0]),
-#     cast_point_to_fq12(proving_key[0][1]),
-# )
+assert pow(g_p_s, alpha, P) == g_alpha_p_s
