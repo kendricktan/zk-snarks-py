@@ -105,12 +105,12 @@ polynomial_degree = 4
 p_coefficients = [1, 3, 2, 0][::-1]
 
 # t(x) = 0x^3 + 1x^2 - 3x + 2
-t_coefficients = [0, 1, -3, 2][::-1]
+t_coefficients = [0, 1, 3, 2][::-1]
 
 # h(x) = 0x^3 + 0x^2 - 1x + 0
 h_coefficients = [0, 0, 1, 0][::-1]
 
-s = randsp()
+s = 4 # randsp()
 alpha = randsp()
 
 ### Setup
