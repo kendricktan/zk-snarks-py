@@ -71,10 +71,10 @@ s = randsp()
 coefficients = [randint(1, 42) for i in range(polynomial_degree)]
 
 g_s = [
-    pow(G, pow(s, i, P), P) for i in range(polynomial_degree)
+    pow(G, pow(s, i), P) for i in range(polynomial_degree)
 ]
 g_alpha_s = [
-    pow(G, alpha * pow(s, i, P), P) for i in range(polynomial_degree)
+    pow(G, alpha * pow(s, i), P) for i in range(polynomial_degree)
 ]
 
 # Evaluate polynomial with provided powers of s
@@ -110,17 +110,17 @@ t_coefficients = [0, 1, 3, 2][::-1]
 # h(x) = 0x^3 + 0x^2 - 1x + 0
 h_coefficients = [0, 0, 1, 0][::-1]
 
-s = 4 # randsp()
-alpha = randsp()
+s = randsn()
+alpha = randsn()
 
 ### Setup
-g_s_i = [multiply(bn128.G2, pow(s, i, P)) for i in range(polynomial_degree)]
+g_s_i = [multiply(bn128.G2, pow(s, i)) for i in range(polynomial_degree)]
 g_alpha_s_i = list(map(lambda x: multiply(x, alpha), g_s_i))
 
 g_alpha = multiply(bn128.G1, alpha)
 g_t_s = reduce(
     lambda acc, x: add(acc, x),
-    [multiply(bn128.G1, t_coefficients[i] * pow(s, i, P) % P) for i in range(polynomial_degree)]
+    [multiply(bn128.G1, t_coefficients[i] * pow(s, i)) for i in range(polynomial_degree)]
 )
 
 ### Proving
@@ -176,8 +176,6 @@ e_gp_galpha = pairing(
     g_alpha
 )
 
-print(e_gpprime_g)
-print(e_gp_galpha)
 passed_poly_restrict = e_gpprime_g == e_gp_galpha
 print(f'Polynomial restrictions passed: {passed_poly_restrict}')
 
@@ -192,6 +190,4 @@ e_gts_gh = pairing(
 )
 
 passed_poly_cofactors = e_gp_g == e_gts_gh
-print(e_gp_g)
-print(e_gts_gh)
 print(f'Polynomial cofactors passed: {passed_poly_cofactors}')
